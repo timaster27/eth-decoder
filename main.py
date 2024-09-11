@@ -1,14 +1,18 @@
 import json
 import os
+from datetime import datetime
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from pyrogram import Client
 from pyrogram.types import Message
 from web3 import Web3
 
-from settings import BOT_NAME, BOT_TOKEN, API_HASH, API_ID, PROXY, ADMIN_ID
+from monitoring import alive, send_error
+from settings import BOT_NAME, BOT_TOKEN, API_HASH, API_ID, PROXY, ADMIN_IDS
 
 client = Client(name=BOT_NAME, bot_token=BOT_TOKEN, api_hash=API_HASH, api_id=API_ID, proxy=PROXY)
 w3 = Web3()
+scheduler = BackgroundScheduler()
 
 about = '''
 Commands:
@@ -23,6 +27,7 @@ if not os.path.exists('abis'):
 
 
 @client.on_message()
+@send_error(client)
 def handle_message(bot: Client, message: Message):
     chat_id = message.chat.id
     if message.text:
@@ -31,7 +36,10 @@ def handle_message(bot: Client, message: Message):
             bot.send_message(chat_id, 'Bot start\n' + about)
         elif msg.startswith('/abi'):
             abis = os.listdir('abis')
-            bot.send_message(chat_id, '\n'.join(abis))
+            if abis:
+                bot.send_message(chat_id, '\n'.join(abis))
+            else:
+                bot.send_message(chat_id, 'Nothing')
         elif msg.startswith('/decode'):
             *abi_name, bytecode = msg.split()[1:]
             abi_name = " ".join(abi_name)
@@ -48,7 +56,7 @@ def handle_message(bot: Client, message: Message):
             else:
                 bot.send_message(chat_id, "File doesn't exist")
         elif msg.startswith('/del'):
-            if not ADMIN_ID or message.from_user.id == ADMIN_ID:
+            if not ADMIN_IDS or message.from_user.id in ADMIN_IDS:
                 abi_name = " ".join(msg.split()[1:])
                 if os.path.exists(f'abis/{abi_name}'):
                     os.remove(f'abis/{abi_name}')
@@ -60,11 +68,13 @@ def handle_message(bot: Client, message: Message):
     elif message.document and message.caption:
         msg = message.caption
         if msg.startswith('/add'):
-            if not ADMIN_ID or message.from_user.id == ADMIN_ID:
+            if not ADMIN_IDS or message.from_user.id in ADMIN_IDS:
                 bot.download_media(message, 'abis/')
                 bot.send_message(chat_id, f'{message.document.file_name} added')
             else:
                 bot.send_message(chat_id, "You haven't access")
 
 
+scheduler.add_job(alive, trigger='interval', args=(client,), start_date=datetime.now().date(), hours=2)
+scheduler.start()
 client.run()
