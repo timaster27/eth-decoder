@@ -26,6 +26,34 @@ if not os.path.exists('abis'):
     os.mkdir('abis')
 
 
+def unpack_list(lst):
+    res = []
+    for i in lst:
+        if isinstance(i, bytes):
+            res.append('0x' + ''.join(c[2:] for c in map(hex, list(i))))
+        elif isinstance(i, list):
+            res.append(unpack_list(i))
+        elif isinstance(i, dict):
+            res.append(unpack_dict(i))
+        else:
+            res.append(i)
+    return res
+
+
+def unpack_dict(d):
+    res = dict()
+    for k, v in d.items():
+        if isinstance(v, bytes):
+            res[k] = '0x' + ''.join(c[2:] for c in map(hex, list(v)))
+        elif isinstance(v, list):
+            res[k] = unpack_list(v)
+        elif isinstance(v, dict):
+            res[k] = unpack_dict(v)
+        else:
+            res[k] = v
+    return res
+
+
 @client.on_message()
 @send_error(client)
 def handle_message(bot: Client, message: Message):
@@ -47,9 +75,15 @@ def handle_message(bot: Client, message: Message):
                 with open(f'abis/{abi_name}', 'r') as fp:
                     abi = json.load(fp)
                 contract = w3.eth.contract(abi=abi)
-                call_data = contract.decode_function_input(bytecode)
-                data = [f'Function: {str(call_data[0]).split()[1][:-1]}\n']
-                for k, v in call_data[1].items():
+                function, call_data = contract.decode_function_input(bytecode)
+                data = [f'Function: {str(function).split()[1][:-1]}\n']
+                for k, v in call_data.items():
+                    if isinstance(v, bytes):
+                        v = '0x' + ''.join(c[2:] for c in map(hex, list(v)))
+                    elif isinstance(v, list):
+                        v = unpack_list(v)
+                    elif isinstance(v, dict):
+                        v = unpack_dict(v)
                     data.append(f'{k}: {v}')
                 data = '\n'.join(data)
                 bot.send_message(chat_id, f"```json\n{data}```")
@@ -77,4 +111,5 @@ def handle_message(bot: Client, message: Message):
 
 scheduler.add_job(alive, trigger='interval', args=(client,), start_date=datetime.now().date(), hours=2)
 scheduler.start()
+
 client.run()
