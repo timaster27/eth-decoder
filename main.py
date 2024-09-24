@@ -61,13 +61,13 @@ def handle_message(bot: Client, message: Message):
     if message.text:
         msg = message.text
         if msg.startswith('/start'):
-            bot.send_message(chat_id, 'Bot start\n' + about)
+            bot.send_message(chat_id, '🚀 Bot started!\n' + about)
         elif msg.startswith('/abi'):
             abis = os.listdir('abis')
             if abis:
-                bot.send_message(chat_id, '\n'.join(abis))
+                bot.send_message(chat_id, '📜 Available ABIs:\n' + '\n'.join(abis))
             else:
-                bot.send_message(chat_id, 'Nothing')
+                bot.send_message(chat_id, '❌ Nothing available.')
         elif msg.startswith('/decode'):
             *abi_name, bytecode = msg.split()[1:]
             abi_name = " ".join(abi_name)
@@ -79,34 +79,34 @@ def handle_message(bot: Client, message: Message):
                 data = [f'Function: {str(function).split()[1][:-1]}\n']
                 for k, v in call_data.items():
                     if isinstance(v, bytes):
-                        v = '0x' + ''.join(c[2:] for c in map(hex, list(v)))
+                        call_data[k] = '0x' + ''.join(c[2:] for c in map(hex, list(v)))
                     elif isinstance(v, list):
-                        v = unpack_list(v)
+                        call_data[k] = unpack_list(v)
                     elif isinstance(v, dict):
-                        v = unpack_dict(v)
-                    data.append(f'{k}: {v}')
+                        call_data[k] = unpack_dict(v)
+                data.append(json.dumps(call_data, indent=4))
                 data = '\n'.join(data)
                 bot.send_message(chat_id, f"```json\n{data}```")
             else:
-                bot.send_message(chat_id, "File doesn't exist")
+                bot.send_message(chat_id, "❌ File doesn't exist")
         elif msg.startswith('/del'):
             if not ADMIN_IDS or message.from_user.id in ADMIN_IDS:
                 abi_name = " ".join(msg.split()[1:])
                 if os.path.exists(f'abis/{abi_name}'):
                     os.remove(f'abis/{abi_name}')
-                    bot.send_message(chat_id, 'File deleted')
+                    bot.send_message(chat_id, '✅ File deleted successfully!')
                 else:
-                    bot.send_message(chat_id, "File doesn't exist")
+                    bot.send_message(chat_id, "❌ File doesn't exist.")
             else:
-                bot.send_message(chat_id, "You haven't access")
+                bot.send_message(chat_id, "🚫 You don't have access.")
     elif message.document and message.caption:
         msg = message.caption
         if msg.startswith('/add'):
             if not ADMIN_IDS or message.from_user.id in ADMIN_IDS:
                 bot.download_media(message, 'abis/')
-                bot.send_message(chat_id, f'{message.document.file_name} added')
+                bot.send_message(chat_id, f'✅ {message.document.file_name} added successfully!')
             else:
-                bot.send_message(chat_id, "You haven't access")
+                bot.send_message(chat_id, "🚫 You don't have access.")
 
 
 scheduler.add_job(alive, trigger='interval', args=(client,), start_date=datetime.now().date(), hours=2)
