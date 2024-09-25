@@ -6,6 +6,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from pyrogram import Client
 from pyrogram.types import Message
 from web3 import Web3
+from web3.exceptions import Web3ValueError
 
 from monitoring import alive, send_error
 from settings import BOT_NAME, BOT_TOKEN, API_HASH, API_ID, PROXY, ADMIN_IDS
@@ -75,7 +76,11 @@ def handle_message(bot: Client, message: Message):
                 with open(f'abis/{abi_name}', 'r') as fp:
                     abi = json.load(fp)
                 contract = w3.eth.contract(abi=abi)
-                function, call_data = contract.decode_function_input(bytecode)
+                try:
+                    function, call_data = contract.decode_function_input(bytecode)
+                except Web3ValueError:
+                    bot.send_message(chat_id, "⚠️ Could not find any function 🔍")
+                    return
                 data = [f'Function: {str(function).split()[1][:-1]}\n']
                 for k, v in call_data.items():
                     if isinstance(v, bytes):

@@ -14,7 +14,7 @@ def send_error(client):
                 func(*args, **kwargs)
             except:
                 traceback.print_exc()
-                client.send_message(ADMIN_IDS, traceback.format_exc())
+                client.send_message(ADMIN_IDS[0], traceback.format_exc())
 
         return wrapper
 
